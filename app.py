@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-# Simulated data
+
 class Event:
     def __init__(self, id, title):
         self.id = id
@@ -11,64 +11,36 @@ class Event:
     def to_dict(self):
         return {"id": self.id, "title": self.title}
 
-events = [
-    Event(1, "Tech Meetup"),
-    Event(2, "Python Workshop")
-]
 
-# Welcome route
-@app.route("/")
-def home():
-    return jsonify({"message": "Welcome to the Event API"})
+events = []
 
 
-# GET all events
-@app.route("/events", methods=["GET"])
-def get_events():
-    return jsonify([event.to_dict() for event in events])
-
-
-# POST - create new event
 @app.route("/events", methods=["POST"])
 def create_event():
     data = request.get_json()
-
-    if not data or "title" not in data:
-        return jsonify({"error": "Title is required"}), 400
-
-    new_id = max(event.id for event in events) + 1 if events else 1
-    new_event = Event(new_id, data["title"])
-
-    events.append(new_event)
-
-    return jsonify(new_event.to_dict()), 201
+    new_id = max((e.id for e in events), default=0) + 1
+    event = Event(new_id, data["title"])
+    events.append(event)
+    return jsonify(event.to_dict()), 201
 
 
-# PATCH - update event
-@app.route("/events/<int:id>", methods=["PATCH"])
-def update_event(id):
+@app.route("/events/<int:event_id>", methods=["PATCH"])
+def update_event(event_id):
+    event = next((e for e in events if e.id == event_id), None)
+    if event is None:
+        return jsonify({"error": "Not found"}), 404
     data = request.get_json()
-
-    if not data or "title" not in data:
-        return jsonify({"error": "Title is required"}), 400
-
-    for event in events:
-        if event.id == id:
-            event.title = data["title"]
-            return jsonify(event.to_dict()), 200
-
-    return jsonify({"error": "Event not found"}), 404
+    event.title = data["title"]
+    return jsonify(event.to_dict()), 200
 
 
-# DELETE - remove event
-@app.route("/events/<int:id>", methods=["DELETE"])
-def delete_event(id):
-    for event in events:
-        if event.id == id:
-            events.remove(event)
-            return jsonify({"message": "Event deleted"}), 200
-
-    return jsonify({"error": "Event not found"}), 404
+@app.route("/events/<int:event_id>", methods=["DELETE"])
+def delete_event(event_id):
+    event = next((e for e in events if e.id == event_id), None)
+    if event is None:
+        return jsonify({"error": "Not found"}), 404
+    events.remove(event)
+    return "", 204
 
 
 if __name__ == "__main__":
